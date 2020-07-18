@@ -6,41 +6,79 @@ import (
 	"fmt"
 	"log"
 	"os"
+	//	"strings"
 	"time"
 )
 
 const timeFormat = "2006-01-02"
 const boxSubCmd = "box"
 const listSubCmd = "list"
+const helpSubCmd = "help"
 
-//var ErrorMessages map[string]string
-//ErrorMessages["huh"] = "this wont work"
+var commands = []string{boxSubCmd, listSubCmd, helpSubCmd}
 
+func appendSlash(path *string) {
+	if (*path)[len(*path)-1:] != "/" {
+		*path += "/"
+	}
+}
 func main() {
 	// Setup subcommands
-	timerCmd := flag.NewFlagSet(boxSubCmd, flag.ExitOnError)
-	taskSeconds := timerCmd.Int("seconds", 0, "How many seconds you want the timebox to last")
-	taskMinutes := timerCmd.Int("minutes", 0, "How many minutes you want the timebox to last")
-	taskName := timerCmd.String("task", "", "Description of the task you'll be working on during this timebox")
+	boxCmd := flag.NewFlagSet(boxSubCmd, flag.ExitOnError)
+	boxSeconds := boxCmd.Int("seconds", 0, "How many seconds you want the timebox to last")
+	boxMinutes := boxCmd.Int("minutes", 0, "How many minutes you want the timebox to last")
+	boxTaskName := boxCmd.String("task", "", "Description of the task you'll be working on during this timebox")
+	boxLogPath := boxCmd.String("path", ".", "Path to use when writing the log file")
+	boxHelp := boxCmd.Bool("help", false, "Display help text")
+	boxCmd.Usage = func() {
+		fmt.Println("usage: ancho box {--seconds int|--minutes int|--seconds int --minutes int} [--task string] [--path string]")
+		boxCmd.PrintDefaults()
+	}
 
 	listCmd := flag.NewFlagSet(listSubCmd, flag.ExitOnError)
 	listDate := listCmd.String("date", time.Now().Format(timeFormat), "The date of the timeboxes you want to view")
-
-	if len(os.Args) < 2 {
-		log.Fatal("No valid subcommand found. Valid commands include `box` and `list`")
+	listLogPath := listCmd.String("path", ".", "Path to use when looking for log files")
+	listHelp := listCmd.Bool("help", false, "Display help text")
+	listCmd.Usage = func() {
+		fmt.Println("usage: ancho list [--date YYYY-MM-DD]")
+		listCmd.PrintDefaults()
 	}
 
-	switch os.Args[1] {
+	helpCmd := flag.NewFlagSet(helpSubCmd, flag.ExitOnError)
+	helpCmd.Usage = func() {
+		fmt.Println("usage: ancho <command> [<args>]")
+		fmt.Printf("\tbox\t\tStart a new timebox with an optional task name\n")
+		fmt.Printf("\tlist\t\tGet a list of timeboxes from a given date (defaults to today's date)\n")
+		fmt.Println("See `ancho <command> --help` for command-specific help.")
+	}
+
+	subcommand := helpSubCmd
+	if len(os.Args) >= 2 {
+		subcommand = os.Args[1]
+	}
+
+	switch subcommand {
 	case boxSubCmd:
-		timerCmd.Parse(os.Args[2:])
+		boxCmd.Parse(os.Args[2:])
+		appendSlash(boxLogPath)
+
+		if *boxHelp {
+			boxCmd.Usage()
+			os.Exit(1)
+		}
+
+		if *boxSeconds <= 0 && *boxMinutes <= 0 {
+			boxCmd.PrintDefaults()
+			os.Exit(1)
+		}
 		ticker := time.NewTicker(time.Second)
 		defer ticker.Stop()
 		done := make(chan bool)
 
 		startTime := time.Now()
 		fmt.Printf("Starting at (RFC3339): %v\n", startTime.Format(time.RFC3339))
-		s := time.Duration(*taskSeconds) * time.Second
-		m := time.Duration(*taskMinutes) * time.Minute
+		s := time.Duration(*boxSeconds) * time.Second
+		m := time.Duration(*boxMinutes) * time.Minute
 		go func() {
 			time.Sleep(s + m)
 			done <- true
@@ -53,14 +91,13 @@ func main() {
 				fmt.Printf("\nEnding at (RFC3339): %v\n", endTime.Format(time.RFC3339))
 
 				// Open file for logging
-				// Current date
 				today := endTime.Format(timeFormat)
-				f, err := os.OpenFile(today+".ancho", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+				f, err := os.OpenFile(*boxLogPath+today+".ancho", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 				if err != nil {
 					log.Fatal(err)
 				}
 
-				toWrite := []byte(startTime.Format(time.RFC3339) + "\t" + endTime.Format(time.RFC3339) + "\t" + *taskName + "\n")
+				toWrite := []byte(startTime.Format(time.RFC3339) + "\t" + endTime.Format(time.RFC3339) + "\t" + *boxTaskName + "\n")
 				if _, err := f.Write(toWrite); err != nil {
 					f.Close()
 					fmt.Println("write error")
@@ -76,7 +113,14 @@ func main() {
 			}
 		}
 	case listSubCmd:
-		f, err := os.Open(*listDate + ".ancho")
+		listCmd.Parse(os.Args[2:])
+		if *listHelp {
+			listCmd.Usage()
+			os.Exit(1)
+		}
+
+		appendSlash(listLogPath)
+		f, err := os.Open(*listLogPath + *listDate + ".ancho")
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -86,6 +130,9 @@ func main() {
 		for scanner.Scan() {
 			fmt.Println(scanner.Text())
 		}
+
+	case helpSubCmd:
+		helpCmd.Usage()
 
 	default:
 		log.Fatal("No valid subcommand found. Valid commands include `box` and `list`")
