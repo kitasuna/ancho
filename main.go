@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
-	//	"strings"
+	"strings"
 	"time"
 )
 
@@ -22,6 +22,11 @@ func appendSlash(path *string) {
 		*path += "/"
 	}
 }
+
+func checkDateFormat(date string) (time.Time, error) {
+	return time.Parse(timeFormat, date)
+}
+
 func main() {
 	// Setup subcommands
 	boxCmd := flag.NewFlagSet(boxSubCmd, flag.ExitOnError)
@@ -76,9 +81,12 @@ func main() {
 		done := make(chan bool)
 
 		startTime := time.Now()
-		fmt.Printf("Starting at (RFC3339): %v\n", startTime.Format(time.RFC3339))
 		s := time.Duration(*boxSeconds) * time.Second
 		m := time.Duration(*boxMinutes) * time.Minute
+		endTime := startTime.Add(s).Add(m)
+
+		fmt.Printf("Starting at (RFC3339): %v\n", startTime.Format(time.RFC3339))
+		fmt.Printf("Scheduled end at (RFC3339): %v\n", endTime.Format(time.RFC3339))
 		go func() {
 			time.Sleep(s + m)
 			done <- true
@@ -120,9 +128,16 @@ func main() {
 		}
 
 		appendSlash(listLogPath)
+
+		if _, err := checkDateFormat(*listDate); err != nil {
+			fmt.Printf("Dates should be of format YYYY-MM-DD. Got input: %v\n", *listDate)
+			os.Exit(1)
+		}
+
 		f, err := os.Open(*listLogPath + *listDate + ".ancho")
 		if err != nil {
-			log.Fatal(err)
+			fmt.Printf("No log file found for date %v\n", *listDate)
+			os.Exit(1)
 		}
 		defer f.Close()
 
@@ -135,6 +150,7 @@ func main() {
 		helpCmd.Usage()
 
 	default:
-		log.Fatal("No valid subcommand found. Valid commands include `box` and `list`")
+		fmt.Printf("No valid subcommand found. Valid commands include %v\n", strings.Join(commands, ","))
+		os.Exit(1)
 	}
 }
