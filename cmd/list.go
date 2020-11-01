@@ -18,8 +18,6 @@ var listCmd = &cobra.Command{
 	Short: "List some stuff",
 	Long:  "List aaaaaaaaaaall the stuff",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		fmt.Printf("Args: %v\n", args)
-
 		if _, err := checkDateFormat(listDate); err != nil {
 			return fmt.Errorf("dates should be of format YYYY-MM-DD. Got input: %v", listDate)
 		}

@@ -5,6 +5,8 @@ import (
 	"time"
 )
 
+var cfgFile string
+
 func appendSlash(path *string) {
 	if (*path)[len(*path)-1:] != "/" {
 		*path += "/"
@@ -17,11 +19,11 @@ func checkDateFormat(date string) (time.Time, error) {
 
 var rootCmd = &cobra.Command{
 	Use:   "ancho",
-	Short: "brief description of ancho",
-	Long:  "nice sexy description of ancho",
+	Short: "A configurable pomodoro / timeboxing CLI application",
+	Long:  "A configurable pomodoro / timeboxing CLI application",
 }
 
-// Execute executes the root command
+// Executes the root command
 func Execute() error {
 	return rootCmd.Execute()
 }

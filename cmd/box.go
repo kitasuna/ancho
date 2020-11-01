@@ -3,25 +3,27 @@ package cmd
 import (
 	"errors"
 	"fmt"
+	homedir "github.com/mitchellh/go-homedir"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 	"os"
 	"time"
 )
 
-var (
-	boxSeconds int
-	boxMinutes int
-	boxLabel   string
-	boxPath    string
-)
+const SecondsFlag = "seconds"
+const MinutesFlag = "minutes"
+const LabelFlag = "label"
+const PathFlag = "path"
+
+var plan = "ridge"
 
 var boxCmd = &cobra.Command{
 	Use:   "box",
 	Short: "Start a timebox",
 	Long:  "",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		fmt.Printf("Args: %v\n", args)
-
+		boxSeconds := viper.GetInt("plans." + plan + "." + SecondsFlag)
+		boxMinutes := viper.GetInt("plans." + plan + "." + MinutesFlag)
 		if boxSeconds <= 0 && boxMinutes <= 0 {
 			return errors.New("Either minutes or seconds must be greater than 0")
 		}
@@ -51,13 +53,15 @@ var boxCmd = &cobra.Command{
 
 				// Open file for logging
 				today := endTime.Format(timeFormat)
+				boxPath := viper.GetString("path")
 				appendSlash(&boxPath)
 				f, err := os.OpenFile(boxPath+today+".ancho", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 				if err != nil {
 					return err
 				}
 
-				toWrite := []byte(startTime.Format(time.RFC3339) + "\t" + endTime.Format(time.RFC3339) + "\t" + boxLabel + "\n")
+				label, _ := cmd.Flags().GetString("label")
+				toWrite := []byte(startTime.Format(time.RFC3339) + "\t" + endTime.Format(time.RFC3339) + "\t" + label + "\n")
 				if _, err := f.Write(toWrite); err != nil {
 					f.Close()
 					return err
@@ -76,10 +80,34 @@ var boxCmd = &cobra.Command{
 	},
 }
 
+func initConfig() {
+	home, err := homedir.Dir()
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	viper.AddConfigPath(home + "/.config")
+	viper.SetConfigType("yaml")
+	viper.SetConfigName("ancho")
+
+	if err := viper.ReadInConfig(); err != nil {
+		fmt.Println(err)
+	}
+}
+
 func init() {
+	cobra.OnInitialize(initConfig)
+
 	rootCmd.AddCommand(boxCmd)
-	boxCmd.Flags().IntVarP(&boxSeconds, "seconds", "s", 0, "Number of seconds you want the timebox to last. Can be combined with `--minutes`")
-	boxCmd.Flags().IntVarP(&boxMinutes, "minutes", "m", 0, "Number of minutes you want the timebox to last. Can be combined with `--seconds`")
-	boxCmd.Flags().StringVarP(&boxLabel, "label", "l", "", "Label for the task you'll be working on during this timebox")
-	boxCmd.Flags().StringVarP(&boxPath, "path", "p", ".", "Path to use when writing the log file")
+	boxCmd.Flags().IntP(SecondsFlag, "s", 0, fmt.Sprintf("Number of seconds you want the timebox to last. Can be combined with --%v", MinutesFlag))
+	viper.BindPFlag("plans."+plan+"."+SecondsFlag, boxCmd.Flags().Lookup(SecondsFlag))
+
+	boxCmd.Flags().IntP(MinutesFlag, "m", 0, fmt.Sprintf("Number of minutes you want the timebox to last. Can be combined with --%v", SecondsFlag))
+	viper.BindPFlag("plans."+plan+"."+MinutesFlag, boxCmd.Flags().Lookup(MinutesFlag))
+
+	boxCmd.Flags().StringP(PathFlag, "p", ".", "Path to use when writing the log file")
+	viper.BindPFlag(PathFlag, boxCmd.Flags().Lookup(PathFlag))
+
+	boxCmd.Flags().StringP(LabelFlag, "l", "", "Label for the task you'll be working on during this timebox")
 }
