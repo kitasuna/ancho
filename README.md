@@ -1,4 +1,6 @@
-# ancho
+
+
+# ancho <img alt="ancho pepper logo" src="https://github.com/kitasuna/ancho/blob/master/static/ancho_bluish.png" height="60">
 
 A simple CLI timer application, written in Go.
 
