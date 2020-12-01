@@ -15,11 +15,11 @@ var listDate string
 
 var listCmd = &cobra.Command{
 	Use:   "list",
-	Short: "List some stuff",
-	Long:  "List aaaaaaaaaaall the stuff",
+	Short: "List timeboxes for a given date",
+	Long:  "",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if _, err := checkDateFormat(listDate); err != nil {
-			return fmt.Errorf("dates should be of format YYYY-MM-DD. Got input: %v", listDate)
+			return fmt.Errorf("Dates should be of format YYYY-MM-DD. Got input: %v", listDate)
 		}
 
 		appendSlash(&listPath)
@@ -40,6 +40,6 @@ var listCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(listCmd)
-	listCmd.Flags().StringVarP(&listDate, "date", "d", time.Now().Format(timeFormat), "The date of the log file you want to view")
+	listCmd.Flags().StringVarP(&listDate, "date", "d", time.Now().Format(timeFormat), "The date of the log file you want to view. Should be given in YYYY-MM-DD format.")
 	listCmd.Flags().StringVarP(&listPath, "path", "p", ".", "Path to use when looking for log files")
 }

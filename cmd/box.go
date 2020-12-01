@@ -86,10 +86,36 @@ func initConfig() {
 		fmt.Println(err)
 		os.Exit(1)
 	}
+	configDir := home + "/.config/ancho"
+	configFileName := "ancho"
+	configFileExt := "yaml"
+	fullConfigPath := fmt.Sprintf("%v/%v.%v", configDir, configFileName, configFileExt)
 
-	viper.AddConfigPath(home + "/.config")
-	viper.SetConfigType("yaml")
-	viper.SetConfigName("ancho")
+	// Create config directory if it doesn't already exist
+	if _, err = os.Stat(configDir); os.IsNotExist(err) {
+		err = os.Mkdir(configDir, os.ModeDir|0755)
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+
+	}
+
+	// Create (touch) config file if it doesn't already exist
+	// TODO add some defaults here later
+	if _, err = os.Stat(fullConfigPath); os.IsNotExist(err) {
+		fmt.Printf("... Creating config file at %v\n", fullConfigPath)
+		file, err := os.OpenFile(fullConfigPath, os.O_RDONLY|os.O_CREATE, 0666)
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+		file.Close()
+	}
+
+	viper.AddConfigPath(configDir)
+	viper.SetConfigType(configFileExt)
+	viper.SetConfigName(configFileName)
 
 	if err := viper.ReadInConfig(); err != nil {
 		fmt.Println(err)
